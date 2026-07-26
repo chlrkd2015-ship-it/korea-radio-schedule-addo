@@ -290,7 +290,7 @@ async function fetchLiveSchedule(key) {
             source: 'https://www.sbs.co.kr/radio/schedules.html',
             live: true,
             updated_at: new Date().toISOString(),
-            artwork: current?.onair?.image_center || current?.onair?.image || null,
+            artwork: current?.onair?.image || current?.onair?.image_center || null,
             programs: rows.map(row => [
                 normalizeTime(row.start_time), normalizeTime(row.end_time), row.title || '제목 없음'
             ])
@@ -743,7 +743,7 @@ async function handleRequest(req, resp, body) {
                     const name = escapeHtml((typeof info === 'object') ? info.name : key.toUpperCase());
                     const freq = (typeof info === 'object') ? info.freq + ' MHz' : '';
                     return `<button class="radio-btn" data-key="${escapeHtml(key)}" onclick="playRadio('${escapeHtml(key)}')">
-                                <img class="btn-artwork" src="artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(key)}&v=cards2" alt="" loading="lazy">
+                                <img class="btn-artwork" src="artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(key)}&v=cards3" alt="" loading="lazy">
                                 <div class="btn-copy">
                                 <div class="btn-name">${name}</div>
                                 <div class="btn-freq">${freq}</div>

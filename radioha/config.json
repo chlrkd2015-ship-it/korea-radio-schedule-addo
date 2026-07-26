@@ -1,6 +1,6 @@
 {
   "name": "Korea Radio Schedule",
-  "version": "3.4.3",
+  "version": "3.4.4",
   "slug": "radioha_schedule",
   "hassio_api": true,
   "homeassistant_api": true,
