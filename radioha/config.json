@@ -1,7 +1,7 @@
 {
-  "name": "Korea Radio for HA",
+  "name": "Korea Radio Schedule",
   "version": "3.1.0-schedule",
-  "slug": "radioha",
+  "slug": "radioha_schedule",
   "hassio_api": true,
   "homeassistant_api": true,
   "description": "Korea Internet Radio for HA with daily schedules",
@@ -14,11 +14,11 @@
   "ingress": true,
   "ingress_port": 3005,
   "panel_icon": "mdi:radio",
-  "panel_title": "Radio Player",
+  "panel_title": "Radio Schedule",
   "ports": {
     "3005/tcp": 3005
   },
-  "url": "https://github.com/plplaaa2/korea_radio_addon",
+  "url": "https://github.com/chlrkd2015-ship-it/korea-radio-schedule-addon",
   "startup": "application",
   "boot": "auto",
   "audio": true,
