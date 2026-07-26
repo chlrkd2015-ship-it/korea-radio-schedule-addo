@@ -232,6 +232,17 @@ function normalizeTime(value) {
     return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
 
+function isCurrentKoreaTime(start, end) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).format(new Date()).split(':').map(Number);
+    const now = parts[0] * 60 + parts[1];
+    const startMinutes = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5));
+    let endMinutes = Number(end.slice(0, 2)) * 60 + Number(end.slice(3, 5));
+    if (endMinutes === 0 && startMinutes > 0) endMinutes = 1440;
+    return now >= startMinutes && now < endMinutes;
+}
+
 async function fetchLiveSchedule(key) {
     const cached = scheduleCache.get(key);
     if (cached && Date.now() - cached.time < SCHEDULE_CACHE_MS) return cached.data;
@@ -273,13 +284,16 @@ async function fetchLiveSchedule(key) {
         };
     } else if (KBS_SCHEDULE_CHANNELS[key]) {
         const channel = KBS_SCHEDULE_CHANNELS[key];
+        const date = koreaDate();
         const response = await instance.get(
-            `https://static.api.kbs.co.kr/mediafactory/v1/schedule/onair_now?rtype=json&local_station_code=00&channel_code=${channel}`,
+            `https://static.api.kbs.co.kr/mediafactory/v1/schedule/weekly?rtype=json&local_station_code=00&channel_code=${channel}&program_planned_date_from=${date}&program_planned_date_to=${date}`,
             { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://schedule.kbs.co.kr/' } }
         );
         const rows = response.data?.[0]?.schedules || [];
-        const current = rows.find(row => row.running?.status === 'Y') ||
-            rows.find(row => row.image_w) || null;
+        const current = rows.find(row => isCurrentKoreaTime(
+            normalizeTime(row.program_planned_start_time),
+            normalizeTime(row.program_planned_end_time)
+        )) || null;
         result = {
             source: 'https://schedule.kbs.co.kr/index.html?sname=schedule&stype=table&type=radioList',
             live: true,
