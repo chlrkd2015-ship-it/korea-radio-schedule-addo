@@ -1,6 +1,6 @@
 {
   "kbs_cool": {
-    "source": "https://program.kbs.co.kr/2fm/radio/schedule.html",
+    "source": "https://radio.kbs.co.kr/",
     "programs": [
       ["00:00", "02:00", "설레는 밤"],
       ["02:00", "05:00", "심야 음악"],
@@ -17,7 +17,7 @@
     ]
   },
   "kbs_happy": {
-    "source": "https://program.kbs.co.kr/2radio/radio/schedule.html",
+    "source": "https://radio.kbs.co.kr/",
     "programs": [
       ["00:00", "05:00", "해피FM 심야 음악"],
       ["05:00", "07:00", "우리의 아침"],
@@ -33,7 +33,7 @@
     ]
   },
   "kbs_classic": {
-    "source": "https://program.kbs.co.kr/1fm/radio/schedule.html",
+    "source": "https://radio.kbs.co.kr/",
     "programs": [
       ["00:00", "06:00", "밤의 클래식"],
       ["06:00", "07:00", "새아침의 클래식"],

@@ -44,7 +44,7 @@
             background: linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
-            padding: 25px 30px;
+            padding: 18px;
             margin-bottom: 25px;
             text-align: center;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -106,9 +106,54 @@
         }
 
         .station-display {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            position: relative;
+            min-height: 220px;
+            display: grid;
+            align-items: end;
+            overflow: hidden;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+        }
+
+        .program-artwork {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .program-artwork.loaded { opacity: 1; }
+
+        .program-overlay {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            padding: 62px 24px 20px;
+            text-align: left;
+            background: linear-gradient(transparent, rgba(4, 10, 22, 0.94));
+        }
+
+        .program-time {
+            margin-top: 6px;
+            color: #cbd5e1;
+            font-size: 0.88em;
+        }
+
+        .frequency-badge {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 2;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(5, 12, 25, 0.72);
+            color: var(--primary);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.76em;
+            backdrop-filter: blur(8px);
         }
 
         .schedule-card {
@@ -419,7 +464,8 @@
             .display-panel { top: 5px; padding: 15px 20px; }
             .android-app-env .display-panel { top: 25px; }
             .display-panel .display-name { font-size: 1.25em; margin-bottom: 5px; }
-            .display-freq { font-size: 3em; }
+            .station-display { min-height: 180px; }
+            .program-overlay { padding: 54px 16px 16px; }
             .media-control-card { bottom: 10px; width: calc(100% - 20px); padding: 10px 15px; gap: 8px; }
             .remote-btn { width: 44px; height: 44px; }
             .remote-btn svg { width: 20px; height: 20px; }
@@ -451,10 +497,11 @@
         <div class="display-panel">
             <div class="now-playing-label" id="play_state">READY TO PLAY</div>
             <div class="station-display">
-                <div id="display_name" class="display-name">방송국을 선택하세요</div>
-                <div class="freq-container">
-                    <span id="display_freq" class="display-freq">00.0</span>
-                    <span class="mhz">MHz</span>
+                <img id="program_artwork" class="program-artwork" alt="">
+                <div class="frequency-badge"><span id="display_freq">00.0</span> MHz</div>
+                <div class="program-overlay">
+                    <div id="display_name" class="display-name">방송국을 선택하세요</div>
+                    <div id="program_time" class="program-time">현재 프로그램 정보가 여기에 표시됩니다.</div>
                 </div>
             </div>
         </div>
@@ -655,6 +702,8 @@
             const date = document.getElementById('schedule_date');
             const list = document.getElementById('schedule_list');
             const source = document.getElementById('schedule_source');
+            const artwork = document.getElementById('program_artwork');
+            const programTime = document.getElementById('program_time');
             const now = new Date();
             const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -686,6 +735,25 @@
                     </div>`;
                 }).join('');
 
+                const currentProgram = programs.find(program =>
+                    isCurrentProgram(program[0], program[1], nowMinutes)
+                );
+                if (currentProgram) {
+                    document.getElementById('display_name').innerText = currentProgram[2];
+                    programTime.innerText = `${stationName} · ${currentProgram[0]}–${currentProgram[1]}`;
+                } else {
+                    programTime.innerText = `${stationName} · 현재 프로그램 정보 없음`;
+                }
+
+                artwork.classList.remove('loaded');
+                artwork.alt = `${stationName} 프로그램 이미지`;
+                artwork.onload = () => artwork.classList.add('loaded');
+                artwork.onerror = () => {
+                    artwork.classList.remove('loaded');
+                    artwork.removeAttribute('src');
+                };
+                artwork.src = `artwork?token=${encodeURIComponent(API_CONFIG.token)}&keys=${encodeURIComponent(key)}&v=2`;
+
                 if (data.source) {
                     source.href = data.source;
                     source.style.display = 'inline-block';
@@ -695,6 +763,7 @@
                 if (currentRow) currentRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             } catch (error) {
                 list.innerHTML = '<div class="schedule-message">편성표를 불러오지 못했습니다.</div>';
+                programTime.innerText = `${stationName} · 편성정보를 불러오지 못했습니다.`;
             }
         }
 
@@ -908,6 +977,10 @@
             if (!key) {
                 document.getElementById('display_name').innerText = "방송국을 선택하세요";
                 document.getElementById('display_freq').innerText = "00.0";
+                document.getElementById('program_time').innerText = "현재 프로그램 정보가 여기에 표시됩니다.";
+                const artwork = document.getElementById('program_artwork');
+                artwork.classList.remove('loaded');
+                artwork.removeAttribute('src');
                 document.getElementById('play_state').innerText = "READY TO PLAY";
                 document.getElementById('play_state').classList.remove('playing-indicator');
                 updatePlayPauseButtonUI("READY TO PLAY");

@@ -211,6 +211,41 @@ function getScheduleData() {
     }
 }
 
+const ARTWORK_URLS = {
+    mbc_fm4u: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_fm4u.png",
+    mbc_fm: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_mbcfm.png",
+    sbs_power: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/sbs_powerfm.png",
+    sbs_love: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/sbs_lovefm.png",
+    cbs_music: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/cbs_mfm.png",
+    cbs_fm: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/cbs_sfm.png",
+    ebs: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/EBS_FM.png"
+};
+
+async function getArtworkUrl(key) {
+    const kbsChannels = {
+        kbs_1radio: "21",
+        kbs_happy: "22",
+        kbs_3radio: "23",
+        kbs_classic: "24",
+        kbs_cool: "25"
+    };
+
+    if (kbsChannels[key]) {
+        try {
+            const response = await instance.get(
+                `https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/${kbsChannels[key]}`,
+                { headers: { 'User-Agent': FULL_UA, 'Referer': 'https://onair.kbs.co.kr/' } }
+            );
+            return response.data?.channelMaster?.image_path_video_thumbnail ||
+                response.data?.channelMaster?.image_path_channel_logo ||
+                null;
+        } catch (e) {
+            console.error(`[Artwork] KBS 이미지 조회 실패 (${key}):`, e.message);
+        }
+    }
+    return ARTWORK_URLS[key] || null;
+}
+
 // KBS 주소 파싱
 function getkbs(param) {
     return new Promise((resolve) => {
@@ -405,7 +440,7 @@ async function handleRequest(req, resp, body) {
         const isAuthorized = token === mytoken;
 
         // [보안] 2. 인증 가드 통합 적용 (보안 지연 및 실패 기록 연계)
-        const protectedPaths = ["/radio", "/get_radio_list", "/get_schedule", "/get_players", "/play_on_player", "/media_action", "/set_volume", "/mute_volume"];
+        const protectedPaths = ["/radio", "/get_radio_list", "/get_schedule", "/artwork", "/get_players", "/play_on_player", "/media_action", "/set_volume", "/mute_volume"];
         if (protectedPaths.includes(urlPath)) {
             if (!isAuthorized) {
                 recordAuthFailure(clientIP);
@@ -560,6 +595,36 @@ async function handleRequest(req, resp, body) {
                     programs: [],
                     message: "이 방송국은 아직 편성표를 제공하지 않습니다."
                 }));
+                break;
+            }
+
+            case "/artwork": {
+                const key = getParam('keys');
+                if (!validateParam(key, 'key')) {
+                    resp.statusCode = 400;
+                    return resp.end("Bad Request");
+                }
+                const artworkUrl = await getArtworkUrl(key);
+                if (!artworkUrl) {
+                    resp.statusCode = 404;
+                    return resp.end("Not Found");
+                }
+                try {
+                    const imageResponse = await axios.get(artworkUrl, {
+                        responseType: 'arraybuffer',
+                        timeout: 7000,
+                        headers: { 'User-Agent': FULL_UA, 'Referer': 'https://radio.kbs.co.kr/' }
+                    });
+                    resp.writeHead(200, {
+                        'Content-Type': imageResponse.headers['content-type'] || 'image/jpeg',
+                        'Cache-Control': 'public, max-age=1800'
+                    });
+                    resp.end(Buffer.from(imageResponse.data));
+                } catch (e) {
+                    console.error(`[Artwork] 이미지 프록시 실패 (${key}):`, e.message);
+                    resp.statusCode = 502;
+                    resp.end("Artwork unavailable");
+                }
                 break;
             }
 

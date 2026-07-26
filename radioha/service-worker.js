@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radioha-pwa-v4-schedule';
+const CACHE_NAME = 'radioha-pwa-v5-artwork';
 const ASSETS = [
   './',
   './manifest.json',
@@ -40,7 +40,8 @@ self.addEventListener('fetch', (event) => {
       event.request.url.includes('/mute_volume') ||
       event.request.url.includes('/get_players') ||
       event.request.url.includes('/get_radio_list') ||
-      event.request.url.includes('/get_schedule')) {
+      event.request.url.includes('/get_schedule') ||
+      event.request.url.includes('/artwork')) {
     return;
   }
   event.respondWith(
