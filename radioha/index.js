@@ -816,7 +816,8 @@ async function handleRequest(req, resp, body) {
                 break;
             }
 
-            case "/artwork": {
+            case "/artwork":
+            case "/card_artwork": {
                 const key = getParam('keys');
                 if (!validateParam(key, 'key')) {
                     resp.statusCode = 400;
@@ -879,15 +880,51 @@ async function handleRequest(req, resp, body) {
                 finalHost = `${finalHost}:${port}`;
 
                 const streamUrl = `http://${finalHost}/radio?token=${mytoken}&keys=${keys}&atype=${atype}`;
+                const artworkUrl = `http://${finalHost}/artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(keys)}&v=player`;
+                const stationInfo = getRadioData()[keys];
+                const stationName = typeof stationInfo === 'object' ? stationInfo.name : keys.toUpperCase();
+                const schedule = await getSchedule(keys);
+                const currentProgram = schedule?.programs?.find(program =>
+                    isCurrentKoreaTime(program[0], program[1])
+                );
+                const mediaTitle = currentProgram?.[2] || stationName;
                 // [보안] 로그에 민감한 인증 토큰(token) 정보가 노출되는 현상을 예방하기 위해 마스킹 처리
                 const maskedUrl = streamUrl.replace(`token=${mytoken}`, 'token=******');
                 console.log(`[Remote Play] Target: ${entity_id}, URL: ${maskedUrl}`);
 
-                hassInstance.post('/services/media_player/play_media', {
+                const playPayload = {
                     entity_id: entity_id,
                     media_content_id: streamUrl,
-                    media_content_type: 'music'
-                }).then(() => resp.end("Success")).catch(() => (resp.statusCode = 500, resp.end("Error")));
+                    media_content_type: 'music',
+                    extra: {
+                        title: mediaTitle,
+                        thumb: artworkUrl,
+                        stream_type: 'LIVE',
+                        metadata: {
+                            metadataType: 3,
+                            title: mediaTitle,
+                            artist: stationName,
+                            images: [{ url: artworkUrl }]
+                        }
+                    }
+                };
+                try {
+                    await hassInstance.post('/services/media_player/play_media', playPayload);
+                    resp.end("Success");
+                } catch (metadataError) {
+                    console.warn(`[Remote Play] metadata unsupported (${entity_id}), retrying without metadata`);
+                    try {
+                        await hassInstance.post('/services/media_player/play_media', {
+                            entity_id: entity_id,
+                            media_content_id: streamUrl,
+                            media_content_type: 'music'
+                        });
+                        resp.end("Success without metadata");
+                    } catch (playError) {
+                        resp.statusCode = 500;
+                        resp.end("Error");
+                    }
+                }
                 break;
             }
 
