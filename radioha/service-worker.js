@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radioha-pwa-v6-live-epg';
+const CACHE_NAME = 'radioha-pwa-v7-station-cards';
 const ASSETS = [
   './',
   './manifest.json',

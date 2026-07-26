@@ -648,9 +648,13 @@ async function handleRequest(req, resp, body) {
                     const info = currentData[key];
                     const name = escapeHtml((typeof info === 'object') ? info.name : key.toUpperCase());
                     const freq = (typeof info === 'object') ? info.freq + ' MHz' : '';
-                    return `<button class="radio-btn" onclick="playRadio('${escapeHtml(key)}')">
+                    return `<button class="radio-btn" data-key="${escapeHtml(key)}" onclick="playRadio('${escapeHtml(key)}')">
+                                <img class="btn-artwork" src="artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(key)}&v=cards" alt="" loading="lazy" onerror="this.onerror=null;this.src='icon.png?token=${encodeURIComponent(mytoken)}'">
+                                <div class="btn-copy">
                                 <div class="btn-name">${name}</div>
                                 <div class="btn-freq">${freq}</div>
+                                <div class="btn-program">${freq || '현재 방송 정보 확인 중'}</div>
+                                </div>
                             </button>`;
                 }).join('');
 
