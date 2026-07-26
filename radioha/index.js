@@ -816,6 +816,37 @@ async function handleRequest(req, resp, body) {
                 break;
             }
 
+            case "/now_playing": {
+                const key = getParam('keys');
+                if (!validateParam(key, 'key')) {
+                    resp.statusCode = 400;
+                    return resp.end("Bad Request");
+                }
+                const schedule = await getSchedule(key);
+                const stationInfo = getRadioData()[key];
+                const stationName = typeof stationInfo === 'object' ? stationInfo.name : key.toUpperCase();
+                const current = schedule?.programs?.find(program =>
+                    isCurrentKoreaTime(program[0], program[1])
+                );
+                resp.writeHead(current ? 200 : 404, {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Cache-Control': 'no-store'
+                });
+                resp.end(JSON.stringify(current ? {
+                    key,
+                    station: stationName,
+                    title: current[2],
+                    start: current[0],
+                    end: current[1],
+                    artwork: `http://${req.headers.host}/card_artwork?keys=${encodeURIComponent(key)}`
+                } : {
+                    key,
+                    station: stationName,
+                    title: "프로그램 정보 없음"
+                }));
+                break;
+            }
+
             case "/artwork":
             case "/card_artwork": {
                 const key = getParam('keys');
