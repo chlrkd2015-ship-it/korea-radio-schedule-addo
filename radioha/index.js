@@ -393,6 +393,42 @@ const ARTWORK_URLS = {
     ebs: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/EBS_FM.png"
 };
 
+function getFallbackArtwork(key) {
+    const info = getRadioData()[key];
+    const name = typeof info === 'object' ? info.name : String(key || '').toUpperCase();
+    const palettes = [
+        ['#0f766e', '#22d3ee'], ['#4338ca', '#38bdf8'], ['#7c2d12', '#fb923c'],
+        ['#4c1d95', '#c084fc'], ['#14532d', '#4ade80'], ['#831843', '#f472b6']
+    ];
+    const seed = [...String(key)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const [from, to] = palettes[seed % palettes.length];
+    const safeName = String(name)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+        <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/>
+        </linearGradient></defs>
+        <rect width="640" height="360" rx="28" fill="url(#bg)"/>
+        <circle cx="535" cy="70" r="125" fill="white" opacity=".08"/>
+        <circle cx="90" cy="330" r="165" fill="white" opacity=".06"/>
+        <g fill="none" stroke="white" stroke-width="12" opacity=".88">
+            <path d="M214 96v168M426 96v168"/>
+            <path d="M214 126c52-35 160-35 212 0M214 234c52 35 160 35 212 0"/>
+            <circle cx="320" cy="180" r="48"/>
+        </g>
+        <text x="320" y="315" fill="white" font-family="Arial,sans-serif" font-size="30" font-weight="700" text-anchor="middle">${safeName}</text>
+    </svg>`, 'utf8');
+}
+
+function sendFallbackArtwork(resp, key) {
+    resp.writeHead(200, {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400'
+    });
+    resp.end(getFallbackArtwork(key));
+}
+
 async function getArtworkUrl(key) {
     try {
         const schedule = await getSchedule(key);
@@ -707,7 +743,7 @@ async function handleRequest(req, resp, body) {
                     const name = escapeHtml((typeof info === 'object') ? info.name : key.toUpperCase());
                     const freq = (typeof info === 'object') ? info.freq + ' MHz' : '';
                     return `<button class="radio-btn" data-key="${escapeHtml(key)}" onclick="playRadio('${escapeHtml(key)}')">
-                                <img class="btn-artwork" src="artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(key)}&v=cards" alt="" loading="lazy" onerror="this.onerror=null;this.src='icon.png?token=${encodeURIComponent(mytoken)}'">
+                                <img class="btn-artwork" src="artwork?token=${encodeURIComponent(mytoken)}&keys=${encodeURIComponent(key)}&v=cards2" alt="" loading="lazy">
                                 <div class="btn-copy">
                                 <div class="btn-name">${name}</div>
                                 <div class="btn-freq">${freq}</div>
@@ -788,8 +824,8 @@ async function handleRequest(req, resp, body) {
                 }
                 const artworkUrl = await getArtworkUrl(key);
                 if (!artworkUrl) {
-                    resp.statusCode = 404;
-                    return resp.end("Not Found");
+                    sendFallbackArtwork(resp, key);
+                    break;
                 }
                 try {
                     const imageResponse = await axios.get(artworkUrl, {
@@ -804,8 +840,7 @@ async function handleRequest(req, resp, body) {
                     resp.end(Buffer.from(imageResponse.data));
                 } catch (e) {
                     console.error(`[Artwork] 이미지 프록시 실패 (${key}):`, e.message);
-                    resp.statusCode = 502;
-                    resp.end("Artwork unavailable");
+                    sendFallbackArtwork(resp, key);
                 }
                 break;
             }

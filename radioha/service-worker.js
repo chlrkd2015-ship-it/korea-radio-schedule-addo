@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radioha-pwa-v8-more-stations';
+const CACHE_NAME = 'radioha-pwa-v9-artwork-fallback';
 const ASSETS = [
   './',
   './manifest.json',
