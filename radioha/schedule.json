@@ -81,7 +81,7 @@
     ]
   },
   "sbs_power": {
-    "source": "https://www.sbs.co.kr/radio/schedules",
+    "source": "https://www.sbs.co.kr/radio/schedules.html",
     "programs": [
       ["00:00", "05:00", "애프터클럽"],
       ["05:00", "07:00", "모닝와이드"],
@@ -97,7 +97,7 @@
     ]
   },
   "sbs_love": {
-    "source": "https://www.sbs.co.kr/radio/schedules",
+    "source": "https://www.sbs.co.kr/radio/schedules.html",
     "programs": [
       ["00:00", "05:00", "러브FM 심야 방송"],
       ["05:00", "07:00", "유영미의 마음은 언제나 청춘"],

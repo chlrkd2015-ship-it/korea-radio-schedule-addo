@@ -752,7 +752,7 @@
                     artwork.classList.remove('loaded');
                     artwork.removeAttribute('src');
                 };
-                artwork.src = `artwork?token=${encodeURIComponent(API_CONFIG.token)}&keys=${encodeURIComponent(key)}&v=2`;
+                artwork.src = `artwork?token=${encodeURIComponent(API_CONFIG.token)}&keys=${encodeURIComponent(key)}&v=${Math.floor(Date.now() / 300000)}`;
 
                 if (data.source) {
                     source.href = data.source;

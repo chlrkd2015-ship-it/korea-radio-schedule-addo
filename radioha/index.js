@@ -211,6 +211,106 @@ function getScheduleData() {
     }
 }
 
+const SCHEDULE_CACHE_MS = 5 * 60 * 1000;
+const scheduleCache = new Map();
+const KBS_SCHEDULE_CHANNELS = {
+    kbs_1radio: "21",
+    kbs_happy: "22",
+    kbs_3radio: "23",
+    kbs_classic: "24",
+    kbs_cool: "25"
+};
+
+function koreaDate() {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date()).replaceAll('-', '');
+}
+
+function normalizeTime(value) {
+    const digits = String(value || '').replace(/\D/g, '').padStart(4, '0');
+    return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
+}
+
+async function fetchLiveSchedule(key) {
+    const cached = scheduleCache.get(key);
+    if (cached && Date.now() - cached.time < SCHEDULE_CACHE_MS) return cached.data;
+
+    let result = null;
+    if (key === 'mbc_fm4u' || key === 'mbc_fm') {
+        const type = key === 'mbc_fm4u' ? 'fm4u' : 'fm';
+        const response = await instance.get(
+            `https://control.imbc.com/Schedule/Radio?sType=${type}&sDate=${koreaDate()}`,
+            { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://m.imbc.com/' } }
+        );
+        const rows = Array.isArray(response.data) ? response.data : [];
+        const current = rows.find(row => row.IsOnAirNow === 'Y') || null;
+        result = {
+            source: `https://m.imbc.com/schedule/${type}`,
+            live: true,
+            updated_at: new Date().toISOString(),
+            artwork: current?.Photo || current?.OnAirImage || null,
+            programs: rows.map(row => [
+                normalizeTime(row.StartTime), normalizeTime(row.EndTime), row.Title || row.SubTitle || '제목 없음'
+            ])
+        };
+    } else if (key === 'sbs_power' || key === 'sbs_love') {
+        const channel = key === 'sbs_power' ? 'power' : 'love';
+        const response = await instance.get(
+            'https://static.apis.sbs.co.kr/radio-api/gorealra/1.0/main/section/common',
+            { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://www.sbs.co.kr/radio' } }
+        );
+        const rows = response.data?.schedule?.[channel] || [];
+        const current = rows.find(row => row.onair_flag === 'Y') || null;
+        result = {
+            source: 'https://www.sbs.co.kr/radio/schedules.html',
+            live: true,
+            updated_at: new Date().toISOString(),
+            artwork: current?.onair?.image_center || current?.onair?.image || null,
+            programs: rows.map(row => [
+                normalizeTime(row.start_time), normalizeTime(row.end_time), row.title || '제목 없음'
+            ])
+        };
+    } else if (KBS_SCHEDULE_CHANNELS[key]) {
+        const channel = KBS_SCHEDULE_CHANNELS[key];
+        const response = await instance.get(
+            `https://static.api.kbs.co.kr/mediafactory/v1/schedule/onair_now?rtype=json&local_station_code=00&channel_code=${channel}`,
+            { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://schedule.kbs.co.kr/' } }
+        );
+        const rows = response.data?.[0]?.schedules || [];
+        const current = rows.find(row => row.running?.status === 'Y') ||
+            rows.find(row => row.image_w) || null;
+        result = {
+            source: 'https://schedule.kbs.co.kr/index.html?sname=schedule&stype=table&type=radioList',
+            live: true,
+            updated_at: new Date().toISOString(),
+            artwork: current?.image_w || null,
+            programs: rows.map(row => [
+                normalizeTime(row.program_planned_start_time),
+                normalizeTime(row.program_planned_end_time),
+                row.programming_table_title || row.program_title || '제목 없음'
+            ])
+        };
+    }
+
+    if (result && result.programs.length) {
+        scheduleCache.set(key, { time: Date.now(), data: result });
+        return result;
+    }
+    return null;
+}
+
+async function getSchedule(key) {
+    try {
+        const live = await fetchLiveSchedule(key);
+        if (live) return live;
+    } catch (e) {
+        console.error(`[Schedule] live fetch failed (${key}):`, e.message);
+    }
+    const fallback = getScheduleData()[key];
+    return fallback ? { ...fallback, live: false, fallback: true } : null;
+}
+
 const ARTWORK_URLS = {
     mbc_fm4u: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_fm4u.png",
     mbc_fm: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_mbcfm.png",
@@ -222,6 +322,12 @@ const ARTWORK_URLS = {
 };
 
 async function getArtworkUrl(key) {
+    try {
+        const schedule = await getSchedule(key);
+        if (schedule?.artwork) return schedule.artwork;
+    } catch (e) {
+        console.error(`[Artwork] schedule artwork failed (${key}):`, e.message);
+    }
     const kbsChannels = {
         kbs_1radio: "21",
         kbs_happy: "22",
@@ -586,10 +692,10 @@ async function handleRequest(req, resp, body) {
                     resp.statusCode = 400;
                     return resp.end("Bad Request");
                 }
-                const schedule = getScheduleData()[key];
+                const schedule = await getSchedule(key);
                 resp.writeHead(schedule ? 200 : 404, {
                     'Content-Type': 'application/json; charset=utf-8',
-                    'Cache-Control': 'public, max-age=300'
+                    'Cache-Control': 'no-store'
                 });
                 resp.end(JSON.stringify(schedule || {
                     programs: [],
@@ -617,7 +723,7 @@ async function handleRequest(req, resp, body) {
                     });
                     resp.writeHead(200, {
                         'Content-Type': imageResponse.headers['content-type'] || 'image/jpeg',
-                        'Cache-Control': 'public, max-age=1800'
+                        'Cache-Control': 'public, max-age=300'
                     });
                     resp.end(Buffer.from(imageResponse.data));
                 } catch (e) {
