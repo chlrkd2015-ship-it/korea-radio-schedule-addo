@@ -422,7 +422,13 @@
         }
         .btn-copy { width: 100%; padding: 12px 8px 10px; min-width: 0; }
         .btn-name { font-weight: 700; font-size: 1em; text-align: center; }
-        .btn-freq { font-size: 0.85em; color: var(--primary); opacity: 0.8; font-family: 'Orbitron', sans-serif; }
+        .btn-freq {
+            display: none;
+            font-size: 0.85em;
+            color: var(--primary);
+            opacity: 0.8;
+            font-family: 'Orbitron', sans-serif;
+        }
         .btn-program {
             margin-top: 6px;
             color: #cbd5e1;
@@ -804,7 +810,10 @@
                     const response = await fetch(
                         `get_schedule?token=${encodeURIComponent(API_CONFIG.token)}&keys=${encodeURIComponent(key)}`
                     );
-                    if (!response.ok) return;
+                    if (!response.ok) {
+                        button.querySelector('.btn-program').textContent = '편성 정보 없음';
+                        return;
+                    }
                     const data = await response.json();
                     const programs = Array.isArray(data.programs) ? data.programs : [];
                     const current = programs.find(program =>
@@ -814,8 +823,11 @@
                         const label = button.querySelector('.btn-program');
                         label.textContent = current[2];
                         label.title = `${current[0]}–${current[1]} ${current[2]}`;
+                    } else {
+                        button.querySelector('.btn-program').textContent = '현재 프로그램 정보 없음';
                     }
                 } catch (error) {
+                    button.querySelector('.btn-program').textContent = '편성 정보 없음';
                     console.warn(`[Station card] ${key}`, error);
                 }
             }));

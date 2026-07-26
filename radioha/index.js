@@ -243,6 +243,19 @@ function isCurrentKoreaTime(start, end) {
     return now >= startMinutes && now < endMinutes;
 }
 
+function plainText(html) {
+    return String(html || '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&#39;/gi, "'")
+        .replace(/&quot;/gi, '"')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 async function fetchLiveSchedule(key) {
     const cached = scheduleCache.get(key);
     if (cached && Date.now() - cached.time < SCHEDULE_CACHE_MS) return cached.data;
@@ -280,6 +293,51 @@ async function fetchLiveSchedule(key) {
             artwork: current?.onair?.image_center || current?.onair?.image || null,
             programs: rows.map(row => [
                 normalizeTime(row.start_time), normalizeTime(row.end_time), row.title || '제목 없음'
+            ])
+        };
+    } else if (key === 'tbs') {
+        const response = await instance.get('https://tbs.seoul.kr/fm/schedule.do', {
+            timeout: 8000,
+            headers: { 'User-Agent': FULL_UA, 'Referer': 'https://tbs.seoul.kr/fm/index.do' }
+        });
+        const rows = [...String(response.data).matchAll(/<tr[\s\S]*?<\/tr>/gi)]
+            .map(match => plainText(match[0]))
+            .map(text => text.match(/^(\d{1,2}:\d{2})\s+(.+)$/))
+            .filter(Boolean)
+            .map(match => [normalizeTime(match[1]), match[2]]);
+        result = {
+            source: 'https://tbs.seoul.kr/fm/schedule.do',
+            live: true,
+            updated_at: new Date().toISOString(),
+            programs: rows.map((row, index) => [
+                row[0], rows[index + 1]?.[0] || '24:00', row[1]
+            ])
+        };
+    } else if (key === 'tbn') {
+        const response = await instance.get(
+            'https://www.tbn.or.kr/program/list.tbn?area_code=6&forum_seq=411&menu_seq=5332',
+            { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://www.tbn.or.kr/' } }
+        );
+        const html = String(response.data);
+        const gyeongin = html.match(/<p class="tts">경인<\/p>([\s\S]*?)(?=<p class="tts">|$)/i)?.[1] || '';
+        const koreaWeekday = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Seoul', weekday: 'short'
+        }).format(new Date());
+        const sectionClass = ['Sat', 'Sun'].includes(koreaWeekday) ? 'weekend' : 'weekday';
+        const section = gyeongin.match(
+            new RegExp(`<div class="${sectionClass}">([\\s\\S]*?)(?=<div class="(?:weekday|weekend)">|$)`, 'i')
+        )?.[1] || gyeongin;
+        const seen = new Set();
+        const rows = [...section.matchAll(
+            /<strong[^>]*>\s*(\d{1,2}:\d{2})\s*<\/strong>\s*<span[^>]*>([\s\S]*?)<\/span>/gi
+        )].map(match => [normalizeTime(match[1]), plainText(match[2])])
+            .filter(row => row[1] && !seen.has(row[0]) && seen.add(row[0]));
+        result = {
+            source: 'https://www.tbn.or.kr/program/list.tbn?area_code=6&forum_seq=411&menu_seq=5332',
+            live: true,
+            updated_at: new Date().toISOString(),
+            programs: rows.map((row, index) => [
+                row[0], rows[index + 1]?.[0] || '24:00', row[1]
             ])
         };
     } else if (KBS_SCHEDULE_CHANNELS[key]) {
@@ -653,7 +711,7 @@ async function handleRequest(req, resp, body) {
                                 <div class="btn-copy">
                                 <div class="btn-name">${name}</div>
                                 <div class="btn-freq">${freq}</div>
-                                <div class="btn-program">${freq || '현재 방송 정보 확인 중'}</div>
+                                <div class="btn-program">프로그램 정보 확인 중</div>
                                 </div>
                             </button>`;
                 }).join('');
