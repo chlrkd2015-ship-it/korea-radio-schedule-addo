@@ -961,6 +961,12 @@ async function handleRequest(req, resp, body) {
                 // [보안] 로그에 민감한 인증 토큰(token) 정보가 노출되는 현상을 예방하기 위해 마스킹 처리
                 const maskedUrl = streamUrl.replace(`token=${mytoken}`, 'token=******');
                 console.log(`[Remote Play] Target: ${entity_id}, URL: ${maskedUrl}`);
+                hassInstance.post('/services/input_text/set_value', {
+                    entity_id: 'input_text.radio_channel_override',
+                    value: keys
+                }).catch(error => {
+                    console.warn('[Remote Play] radio_channel_override helper unavailable:', error.message);
+                });
 
                 const playPayload = {
                     entity_id: entity_id,
