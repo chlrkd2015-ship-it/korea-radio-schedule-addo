@@ -232,6 +232,23 @@ function normalizeTime(value) {
     return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
 
+function sbsSchedulePath(offsetDays = 0) {
+    const date = koreaDate();
+    const utc = new Date(Date.UTC(
+        Number(date.slice(0, 4)),
+        Number(date.slice(4, 6)) - 1,
+        Number(date.slice(6, 8)) + offsetDays
+    ));
+    return `${utc.getUTCFullYear()}/${utc.getUTCMonth() + 1}/${utc.getUTCDate()}`;
+}
+
+function normalizeSbsTime(value, isEnd = false) {
+    const [rawHour, rawMinute = '00'] = String(value || '00:00').split(':');
+    const hour = Number(rawHour);
+    if (isEnd && hour >= 24) return '24:00';
+    return `${String(hour % 24).padStart(2, '0')}:${String(rawMinute).padStart(2, '0')}`;
+}
+
 function isCurrentKoreaTime(start, end) {
     const parts = new Intl.DateTimeFormat('en-GB', {
         timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
@@ -279,18 +296,40 @@ async function fetchLiveSchedule(key) {
             ])
         };
     } else if (key === 'sbs_power' || key === 'sbs_love') {
-        const channel = key === 'sbs_power' ? 'power' : 'love';
-        const response = await instance.get(
-            'https://static.apis.sbs.co.kr/radio-api/gorealra/1.0/main/section/common',
-            { timeout: 8000, headers: { 'User-Agent': FULL_UA, 'Referer': 'https://www.sbs.co.kr/radio' } }
-        );
-        const rows = response.data?.schedule?.[channel] || [];
-        const current = rows.find(row => row.onair_flag === 'Y') || null;
+        const channel = key === 'sbs_power' ? 'Power' : 'Love';
+        const headers = { 'User-Agent': FULL_UA, 'Referer': 'https://www.sbs.co.kr/schedule/' };
+        const [todayResponse, yesterdayResponse] = await Promise.all([
+            instance.get(`https://static.cloud.sbs.co.kr/schedule/${sbsSchedulePath()}/${channel}.json`, {
+                timeout: 8000, headers
+            }),
+            instance.get(`https://static.cloud.sbs.co.kr/schedule/${sbsSchedulePath(-1)}/${channel}.json`, {
+                timeout: 8000, headers
+            })
+        ]);
+        const yesterdayAfterMidnight = (Array.isArray(yesterdayResponse.data) ? yesterdayResponse.data : [])
+            .filter(row => Number(String(row.start_time).split(':')[0]) >= 24)
+            .map(row => ({
+                ...row,
+                start_time: normalizeSbsTime(row.start_time),
+                end_time: normalizeSbsTime(row.end_time, true)
+            }));
+        const today = (Array.isArray(todayResponse.data) ? todayResponse.data : [])
+            .filter(row => Number(String(row.start_time).split(':')[0]) < 24)
+            .map(row => ({
+                ...row,
+                start_time: normalizeSbsTime(row.start_time),
+                end_time: normalizeSbsTime(row.end_time, true)
+            }));
+        const rows = [...yesterdayAfterMidnight, ...today];
+        const current = rows.find(row => isCurrentKoreaTime(
+            normalizeSbsTime(row.start_time),
+            normalizeSbsTime(row.end_time, true)
+        )) || null;
         result = {
-            source: 'https://www.sbs.co.kr/radio/schedules.html',
+            source: `https://www.sbs.co.kr/schedule/index.html?type=ra&channel=${channel}&pmDate=${koreaDate()}`,
             live: true,
             updated_at: new Date().toISOString(),
-            artwork: current?.onair?.image || current?.onair?.image_center || null,
+            artwork: current?.program_image || null,
             programs: rows.map(row => [
                 normalizeTime(row.start_time), normalizeTime(row.end_time), row.title || '제목 없음'
             ])

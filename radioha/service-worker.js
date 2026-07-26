@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radioha-pwa-v13-now-playing';
+const CACHE_NAME = 'radioha-pwa-v14-sbs-schedule-images';
 const ASSETS = [
   './',
   './manifest.json',
