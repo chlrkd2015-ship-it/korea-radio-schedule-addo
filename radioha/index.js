@@ -311,7 +311,7 @@ async function fetchLiveSchedule(key) {
             .map(row => ({
                 ...row,
                 start_time: normalizeSbsTime(row.start_time),
-                end_time: normalizeSbsTime(row.end_time, true)
+                end_time: normalizeSbsTime(row.end_time)
             }));
         const today = (Array.isArray(todayResponse.data) ? todayResponse.data : [])
             .filter(row => Number(String(row.start_time).split(':')[0]) < 24)

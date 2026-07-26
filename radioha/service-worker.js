@@ -1,4 +1,4 @@
-const CACHE_NAME = 'radioha-pwa-v14-sbs-schedule-images';
+const CACHE_NAME = 'radioha-pwa-v15-sbs-midnight-fix';
 const ASSETS = [
   './',
   './manifest.json',
