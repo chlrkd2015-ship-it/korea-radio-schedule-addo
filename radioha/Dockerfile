@@ -10,6 +10,7 @@ COPY index.js .
 COPY index.html .
 COPY package.json .
 COPY radio-list.json .
+COPY schedule.json .
 COPY run.sh .
 COPY manifest.json .
 COPY service-worker.js .
