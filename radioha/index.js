@@ -423,6 +423,7 @@ async function getSchedule(key) {
 }
 
 const ARTWORK_URLS = {
+    ubc_green: "https://www.ubc.co.kr/wp/wp-content/uploads/2015/02/radio_top1-818x197.jpg",
     mbc_fm4u: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_fm4u.png",
     mbc_fm: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/mbc_mbcfm.png",
     sbs_power: "https://raw.githubusercontent.com/miumida/korea_radio/main/cover_image/sbs_powerfm.png",
